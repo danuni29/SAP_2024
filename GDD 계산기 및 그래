@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GDD 계산기 및 그래프</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        .output {
+            color: blue;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        input, select {
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #chartContainer {
+            margin-top: 40px;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: 400px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>GDD 계산기 및 그래프</h1>
+
+    <form id="gddForm">
+        <label for="location">관측지점:</label><br>
+        <input type="text" id="location" name="location" required><br>
+
+        <label for="startDate">관측 시작일자:</label><br>
+        <input type="date" id="startDate" name="startDate" required><br>
+
+        <label for="endDate">관측 종료일자:</label><br>
+        <input type="date" id="endDate" name="endDate" required><br>
+
+        <label for="cropType">작물 품종:</label><br>
+        <select id="cropType" name="cropType" required>
+            <option value="corn">옥수수</option>
+            <option value="wheat">밀</option>
+            <!-- 필요한 작물 추가 -->
+        </select><br>
+
+        <button type="button" onclick="calculateGDD()">출력</button>
+    </form>
+
+    <div id="output" class="output"></div>
+
+    <!-- 그래프를 그릴 공간 -->
+    <div id="chartContainer">
+        <canvas id="gddChart"></canvas>
+    </div>
+
+    <!-- Chart.js 라이브러리 포함 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // 작물에 따른 기준온도 설정 (실제 값으로 대체 가능)
+        const CROP_BASE_TEMPERATURES = {
+            'corn': 10,  // 옥수수 기준온도
+            'wheat': 5   // 밀 기준온도
+        };
+
+        // 임시 기온 데이터 생성 함수 (실제 API에서 받아올 수 있음)
+        function getTemperatureData(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const temperatureData = [];
+
+            while (start <= end) {
+                const formattedDate = start.toISOString().split('T')[0];
+                const maxTemp = Math.floor(Math.random() * (35 - 20 + 1)) + 20; // 임의 최고기온 20~35도
+                const minTemp = Math.floor(Math.random() * (20 - 10 + 1)) + 10; // 임의 최저기온 10~20도
+                temperatureData.push({
+                    date: formattedDate,
+                    maxTemp: maxTemp,
+                    minTemp: minTemp
+                });
+                start.setDate(start.getDate() + 1);
+            }
+
+            return temperatureData;
+        }
+
+        // GDD 계산을 위한 함수
+        function calculateGDD() {
+            const location = document.getElementById("location").value;
+            const startDate = document.getElementById("startDate").value;
+            const endDate = document.getElementById("endDate").value;
+            const cropType = document.getElementById("cropType").value;
+
+            // 기준온도 설정
+            const baseTemp = CROP_BASE_TEMPERATURES[cropType] || 10;
+
+            // 임시 기온 데이터 생성 (실제 API 데이터 대신 사용)
+            const temperatureData = getTemperatureData(startDate, endDate);
+            const gddValues = [];
+            const dates = [];
+
+            let gddTotal = 0;
+
+            // 각 날짜별로 GDD 계산
+            temperatureData.forEach(data => {
+                const avgTemp = (data.maxTemp + data.minTemp) / 2;
+                const dailyGDD = avgTemp - baseTemp > 0 ? avgTemp - baseTemp : 0;
+                gddTotal += dailyGDD;
+                gddValues.push(dailyGDD.toFixed(2));
+                dates.push(data.date);
+            });
+
+            // 결과 출력
+            const outputDiv = document.getElementById("output");
+            outputDiv.innerHTML = `${startDate} ~ ${endDate} GDD는 ${gddTotal.toFixed(2)}입니다.`;
+
+            // 그래프 그리기
+            drawGDDChart(dates, gddValues);
+        }
+
+        // GDD 그래프를 그리는 함수
+        function drawGDDChart(dates, gddValues) {
+            const ctx = document.getElementById('gddChart').getContext('2d');
+            const gddChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates, // X축: 관측일자
+                    datasets: [{
+                        label: '일별 GDD',
+                        data: gddValues, // Y축: GDD 값
+                        borderColor: 'blue',
+                        backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                        borderWidth: 2,
+                        fill: true
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '관측일자'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'GDD 값'
+                            },
+                            beginAtZero: true
+                        }
+                    },
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>
