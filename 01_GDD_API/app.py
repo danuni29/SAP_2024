@@ -9,7 +9,7 @@ app = Flask(__name__, template_folder='templates')
 
 def get_region_code(region):
     url = 'http://apis.data.go.kr/1390802/AgriWeather/WeatherObsrInfo/GrdlInfo/getWeatherZoneCodeList'
-    serviceKey = 'CaNVjajLQjjwRIQMs8QNBr1uV86t3KkH5FT8sbOTcWIpZOyWUZ9VdEze/miJwopWCi4M4ayJAUAnXbTeogRGdA=='
+    serviceKey = '53nPttwPfL8c+MibSBVTGOgXVMg1j/e5ZJnIwktQE4QfnL+Xcry61/sqyvhiRRMqZuh1WaEE7HYR54FalGkFwg=='
 
     params = {
         'serviceKey': serviceKey,
@@ -39,7 +39,7 @@ def get_region_code(region):
 
 def get_GDD(region, begin_date, end_date, crop_name="일반작물", base_temp='5.0'):
     url = 'http://apis.data.go.kr/1390802/AgriWeather/WeatherObsrInfo/GrwDay/getWeatherDegreeDaySpotList'
-    serviceKey = 'CaNVjajLQjjwRIQMs8QNBr1uV86t3KkH5FT8sbOTcWIpZOyWUZ9VdEze/miJwopWCi4M4ayJAUAnXbTeogRGdA=='
+    serviceKey = '53nPttwPfL8c+MibSBVTGOgXVMg1j/e5ZJnIwktQE4QfnL+Xcry61/sqyvhiRRMqZuh1WaEE7HYR54FalGkFwg=='
 
     crop_data = {
         "겨자": {"crop_code": "01", "생장개시온도": 0.0},
@@ -93,7 +93,7 @@ def get_GDD(region, begin_date, end_date, crop_name="일반작물", base_temp='5
 def get_average_GDD(region, begin_date, end_date, crop_name="일반작물"):
     # Define the base URL and API key
     url = 'http://apis.data.go.kr/1390802/AgriWeather/WeatherObsrInfo/GrwDay/getWeatherDegreeDaySpotList'
-    serviceKey = 'CaNVjajLQjjwRIQMs8QNBr1uV86t3KkH5FT8sbOTcWIpZOyWUZ9VdEze/miJwopWCi4M4ayJAUAnXbTeogRGdA=='
+    serviceKey = '53nPttwPfL8c+MibSBVTGOgXVMg1j/e5ZJnIwktQE4QfnL+Xcry61/sqyvhiRRMqZuh1WaEE7HYR54FalGkFwg=='
 
     crop_data = {
         "겨자": {"crop_code": "01", "생장개시온도": 0.0},
@@ -160,8 +160,8 @@ def get_average_GDD(region, begin_date, end_date, crop_name="일반작물"):
 @app.route('/')
 def index():
     return render_template('index.html')
-region = '가평군 가평읍'
-print(f"5 year average: {get_average_GDD(region, '2022-09-01', '2022-09-10', '옥수수')}")
+# region = '가평군 가평읍'
+# print(f"5 year average: {get_average_GDD(region, '2022-09-01', '2022-09-10', '옥수수')}")
 @app.route('/get_gdd', methods=['GET'])
 def get_gdd():
     region = request.args.get('region')
