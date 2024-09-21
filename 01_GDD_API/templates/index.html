@@ -61,13 +61,12 @@
         <input type="date" id="endDate" name="endDate" required><br>
 
         <label for="cropType">작물 품종:</label><br>
-        <select id="cropType" name="cropType" required>
-            <option value="corn">옥수수</option>
-            <option value="wheat">밀</option>
-            <!-- 필요한 작물 추가 -->
+        <select id="cropType" name="cropType" req`uired>
+            <option value="옥수수">옥수수</option>
+            <option value="밀">밀</option>
         </select><br>
 
-        <button type="button" onclick="calculateGDD()">출력</button>
+        <button type="button" onclick="fetchGDD()">출력</button>
     </form>
 
     <div id="output" class="output"></div>
@@ -81,82 +80,70 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
-        // 작물에 따른 기준온도 설정 (실제 값으로 대체 가능)
-        const CROP_BASE_TEMPERATURES = {
-            'corn': 10,  // 옥수수 기준온도
-            'wheat': 5   // 밀 기준온도
-        };
+       async function fetchGDD() {
+        const region = document.getElementById("location").value;
+        const startDate = document.getElementById("startDate").value;
+        const endDate = document.getElementById("endDate").value;
+        const cropType = document.getElementById("cropType").value;
 
-        // 임시 기온 데이터 생성 함수 (실제 API에서 받아올 수 있음)
-        function getTemperatureData(startDate, endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            const temperatureData = [];
+        console.log(`Requesting GDD data for region: ${region}, startDate: ${startDate}, endDate: ${endDate}, cropType: ${cropType}`);
 
-            while (start <= end) {
-                const formattedDate = start.toISOString().split('T')[0];
-                const maxTemp = Math.floor(Math.random() * (35 - 20 + 1)) + 20; // 임의 최고기온 20~35도
-                const minTemp = Math.floor(Math.random() * (20 - 10 + 1)) + 10; // 임의 최저기온 10~20도
-                temperatureData.push({
-                    date: formattedDate,
-                    maxTemp: maxTemp,
-                    minTemp: minTemp
-                });
-                start.setDate(start.getDate() + 1);
+
+        try {
+            // GET 요청으로 GDD 데이터 가져오기
+            const response = await fetch(`/get_gdd?region=${region}&startDate=${startDate}&endDate=${endDate}&cropType=${cropType}`);
+
+            // 응답이 JSON 형식으로 들어오므로 바로 response.json() 사용
+            const data = await response.json();
+            console.log("Data:", data);
+
+            if (data.error) {
+                document.getElementById("output").innerHTML = `<p>오류: ${data.error}</p>`;
+            } else {
+            let gddTotalLast = data.gdd_total.length > 0 ? data.gdd_total[data.gdd_total.length - 1] : '데이터 없음';
+            let gddFiveDayLast = data.gdd_five_day.length > 0 ? data.gdd_five_day[data.gdd_five_day.length - 1] : '데이터 없음';
+
+            let output = `<p>${startDate} ~ ${endDate} ${region}의 총 GDD는 ${gddTotalLast}이며, 지난 5년 평균 GDD는 ${gddFiveDayLast}입니다.</p>`;
+                document.getElementById("output").innerHTML = output;
+
+                // 그래프 그리기
+                 drawGDDChart(startDate, endDate, data.gdd_five_day, data.gdd_total);
             }
-
-            return temperatureData;
+        } catch (error) {
+            console.error("Error fetching GDD data:", error);
+            document.getElementById("output").innerHTML = `<p>요청 처리 중 오류가 발생했습니다: ${error.message}</p>`;
         }
+    }
 
-        // GDD 계산을 위한 함수
-        function calculateGDD() {
-            const location = document.getElementById("location").value;
-            const startDate = document.getElementById("startDate").value;
-            const endDate = document.getElementById("endDate").value;
-            const cropType = document.getElementById("cropType").value;
 
-            // 기준온도 설정
-            const baseTemp = CROP_BASE_TEMPERATURES[cropType] || 10;
+    function drawGDDChart(startDate, endDate, gddFiveDayValues, gddTotalValues) {
+        const ctx = document.getElementById('gddChart').getContext('2d');
 
-            // 임시 기온 데이터 생성 (실제 API 데이터 대신 사용)
-            const temperatureData = getTemperatureData(startDate, endDate);
-            const gddValues = [];
-            const dates = [];
+        // startDate와 endDate로 날짜 배열 생성
+        const dates = generateDateLabels(startDate, endDate);
 
-            let gddTotal = 0;
-
-            // 각 날짜별로 GDD 계산
-            temperatureData.forEach(data => {
-                const avgTemp = (data.maxTemp + data.minTemp) / 2;
-                const dailyGDD = avgTemp - baseTemp > 0 ? avgTemp - baseTemp : 0;
-                gddTotal += dailyGDD;
-                gddValues.push(dailyGDD.toFixed(2));
-                dates.push(data.date);
-            });
-
-            // 결과 출력
-            const outputDiv = document.getElementById("output");
-            outputDiv.innerHTML = `${startDate} ~ ${endDate} GDD는 ${gddTotal.toFixed(2)}입니다.`;
-
-            // 그래프 그리기
-            drawGDDChart(dates, gddValues);
-        }
-
-        // GDD 그래프를 그리는 함수
-        function drawGDDChart(dates, gddValues) {
-            const ctx = document.getElementById('gddChart').getContext('2d');
             const gddChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: dates, // X축: 관측일자
-                    datasets: [{
-                        label: '일별 GDD',
-                        data: gddValues, // Y축: GDD 값
-                        borderColor: 'blue',
-                        backgroundColor: 'rgba(0, 123, 255, 0.2)',
-                        borderWidth: 2,
-                        fill: true
-                    }]
+                    labels: dates,  // 자동으로 생성한 날짜 레이블 사용
+                    datasets: [
+                        {
+                            label: '5년 평균 GDD',
+                            data: gddFiveDayValues,
+                            borderColor: 'blue',
+                            backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        },
+                        {
+                            label: '총 GDD',
+                            data: gddTotalValues,
+                            borderColor: 'green',
+                            backgroundColor: 'rgba(0, 255, 0, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        }
+                    ]
                 },
                 options: {
                     scales: {
@@ -174,12 +161,28 @@
                             beginAtZero: true
                         }
                     },
-                    responsive: true,
-                    maintainAspectRatio: false
+                    responsive: true
                 }
             });
         }
-    </script>
 
+        // 날짜 레이블 생성 함수
+        function generateDateLabels(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const dateLabels = [];
+
+            // 날짜 범위 내의 모든 날짜를 배열로 생성
+            while (start <= end) {
+                const year = start.getFullYear();
+                const month = String(start.getMonth() + 1).padStart(2, '0'); // 월을 두 자리로 맞추기
+                const day = String(start.getDate()).padStart(2, '0');        // 일을 두 자리로 맞추기
+                dateLabels.push(`${year}-${month}-${day}`);
+                start.setDate(start.getDate() + 1);  // 하루씩 추가
+            }
+
+            return dateLabels;
+        }
+    </script>
 </body>
 </html>
