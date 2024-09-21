@@ -182,6 +182,8 @@ def get_gdd():
             'gdd_five_day': five_gdd_list,
             'gdd_total': gdd_list
         })
+
+
     else:
         return jsonify({'error': 'GDD 계산에 실패했습니다.'}), 500
 
