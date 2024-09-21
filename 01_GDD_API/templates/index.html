@@ -61,9 +61,19 @@
         <input type="date" id="endDate" name="endDate" required><br>
 
         <label for="cropType">작물 품종:</label><br>
-        <select id="cropType" name="cropType" req`uired>
+        <select id="cropType" name="cropType" required>
+            <option value="겨자">겨자</option>
+            <option value="시금치">시금치</option>
+            <option value="상추">상추</option>
+            <option value="보리">보리</option>
+            <option value="완두">완두</option>
+            <option value="아스파라거스">아스파라거스</option>
             <option value="옥수수">옥수수</option>
-            <option value="밀">밀</option>
+            <option value="콩">콩</option>
+            <option value="토마토">토마토</option>
+            <option value="호박">호박</option>
+            <option value="벼">벼</option>
+            <option value="일반작물">일반작물</option>
         </select><br>
 
         <button type="button" onclick="fetchGDD()">출력</button>
