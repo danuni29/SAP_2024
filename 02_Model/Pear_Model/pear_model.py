@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import math
+import os
 
 def valid_month(df):
 
@@ -18,7 +19,7 @@ def valid_month(df):
     # 불필요한 데이터 제거
     df = df[~df['month'].isin([7, 8, 9])]
 
-    df.to_csv(('./test.csv'))
+    # df.to_csv(('./test.csv'))
 
     return df
 
@@ -42,7 +43,7 @@ def DVR_model(df):
     # agri_year별로 그룹화하여 반복
     for year, group in df.groupby('year'):
         DVS = 0
-        print(year, group)
+        # print(year, group)
 
 
         for tavg, date in group[['tavg', 'date']].itertuples(index=False):
@@ -51,7 +52,7 @@ def DVR_model(df):
             if tavg > 5:
                 DVR = (1 / (A * (B ** tavg))) * 100
                 DVS += DVR
-                print(DVS, DVR)
+                # print(DVS, DVR)
 
                 if DVS >= 100:
                     results.append({'DVS': DVS, 'full_bloom_date': date})
@@ -59,11 +60,9 @@ def DVR_model(df):
 
 
             # 결과를 DataFrame으로 변환하고 CSV 파일로 저장
-        result_df = pd.DataFrame(results)
-        result_df.to_csv('./DVR_Model_result.csv', index=False)
-
-
-
+    result_df = pd.DataFrame(results)
+        # result_df.to_csv('./DVR_Model_result.csv', index=False)
+    return result_df
 #  ---------------------------------------------------
 # mDVR Model
 
@@ -148,31 +147,37 @@ def mDVR_model(df):
         year_df['cumulative_DVR1'] = year_df[dvr1_columns].sum(axis=1).cumsum()
         year_df['cumulative_DVR1'] += year_df['DVR1_initial'].fillna(0)  # 2월 15일 값을 1로 시작하여 누적
 
-        # 강제휴면 해제 시점 찾기
-        year_df_after_chilling = year_df[year_df['cumulative_DVR1'] >= 2].copy()
-        # print(year_df['cumulative_DVR1'])
+        # DVR2는 DVR1이 2에 도달한 이후부터 누적
+        year_df['cumulative_DVR2'] = 0  # 초기값 설정
+        dvr2_columns = [col for col in year_df.columns if 'DVR2_' in col]
+        start_accumulation = False
 
-        # 해당 데이터가 있는지 확인
-        # if year_df_after_chilling.empty:
-        #     print(f"{year}년의 데이터에서 DVR1이 2에 도달하지 않았습니다.")
-        #     bloom_results.append({'year': year, 'predicted_bloom_date': None})
-        #     continue  # 다음 해로 이동
+        for i in range(len(year_df)):
+            if year_df.iloc[i]['cumulative_DVR1'] >= 2:
+                start_accumulation = True
+            if start_accumulation:
+                year_df.iloc[i, year_df.columns.get_loc('cumulative_DVR2')] = year_df.iloc[i][dvr2_columns].sum()
 
-        # DVR2 누적 합계 계산 시작
-        dvr2_columns = [col for col in year_df_after_chilling.columns if 'DVR2_' in col]
-        year_df_after_chilling['cumulative_DVR2'] = year_df_after_chilling[dvr2_columns].sum(axis=1).cumsum()
+        # DVR2 누적 합계 계산
+        year_df['cumulative_DVR2'] = year_df['cumulative_DVR2'].cumsum()
+
+        # 중간 결과 확인: DVR1 및 DVR2 누적 합계 출력
+        print(f"=== DVR1 누적 합계 (연도: {year}) ===")
+        print(year_df[['date', 'cumulative_DVR1']].head(10))  # 상위 10개
+        print(year_df[['date', 'cumulative_DVR1']].tail(10))  # 하위 10개
+
+        print(f"=== DVR2 누적 합계 (연도: {year}) ===")
+        print(year_df[['date', 'cumulative_DVR2']].head(10))  # 상위 10개
+        print(year_df[['date', 'cumulative_DVR2']].tail(10))  # 하위 10개
 
         # 개화 시기 예측
-        df_reach_bloom = year_df_after_chilling[year_df_after_chilling['cumulative_DVR2'] >= 0.9593]
-        # print(year_df_after_chilling['cumulative_DVR2'])
-        # if df_reach_bloom.empty:
-        #     print(f"{year}년의 데이터에서 DVR2가 0.9593에 도달하지 않았습니다.")
-        #     bloom_results.append({'year': year, 'predicted_bloom_date': None})
-        #     continue  # 다음 해로 이동
+        df_reach_bloom = year_df[year_df['cumulative_DVR2'] >= 0.9593]
 
-        bloom_date = df_reach_bloom.iloc[0]['date']
-        # print(f"예상 개화 시기 ({year}년): {bloom_date}")
-        bloom_results.append({'year': year, 'predicted_bloom_date': bloom_date})
+        if not df_reach_bloom.empty:
+            bloom_date = df_reach_bloom.iloc[0]['date']
+            bloom_results.append({'year': year, 'predicted_bloom_date': bloom_date})
+        else:
+            bloom_results.append({'year': year, 'predicted_bloom_date': None})
 
     # 결과를 DataFrame으로 변환하여 반환
     bloom_results_df = pd.DataFrame(bloom_results)
@@ -210,7 +215,6 @@ def calculate_units(row):
 
 # main 함수
 def calculate_chill_heat(df):
-    Tc = 5.4
     Hr = 272  # 고온요구량
     Cr = -86.4  # 저온요구량
 
@@ -221,7 +225,7 @@ def calculate_chill_heat(df):
 
     result_df = pd.DataFrame()
     grouped_df = df.groupby('year')
-    all_date = pd.DataFrame()
+
 
     # 연도별로 데이터 처리
     for year, year_df in grouped_df:
@@ -241,29 +245,35 @@ def calculate_chill_heat(df):
         # 만개예상일 계산
         year_date = year_df[year_df['cumsum_heat_unit'] >= Hr].head(1)
 
-        all_date = pd.concat([all_date, year_date])
+        result_df = pd.concat([result_df, year_date])
 
-    cd_date = all_date[['year', 'date']].reset_index(drop=True)
+    cd_date = result_df[['year', 'date']].reset_index(drop=True)
     cd_date = cd_date.rename(columns={"date": "CD"})
+    # cd_date.to_csv('CD_Model_result.csv', index=False)
     return cd_date
 
-    # result_df = pd.concat([result_df, year_df])
 
-    # 유니크한 만개일을 CSV로 저장
-    # unique_full_bloom_df = pd.DataFrame(all_full_blooms, columns=['full_bloom'])
-    # unique_full_bloom_df.drop_duplicates().to_csv('CD_Model_result.csv', index=False)
-    #
-    # return result_df.reset_index(drop=True)
 def main():
-    df = pd.read_csv('../input/이천_203_2003.csv', skipinitialspace=True)
-    df.to_csv("./test.csv")
-    print(DVR_model(valid_month(df)))
-    # print(valid_month(df))
-    print(calculate_chill_heat(df))
 
-    # print(DVR_model(df))
-    # print(valid_month(df))
-    # print(mDVR_model(df))
+    input_dir = '../input/weather_data'
+    output_dir = '../Pear_Model_output'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    for file_name in os.listdir(input_dir):
+        file_path = os.path.join(input_dir, file_name)
+
+        if file_name.endswith('.csv'):  # CSV 파일만 처리
+            base_file_name = os.path.splitext(file_name)[0]
+
+            output_file_path = os.path.join(output_dir, file_name)
+
+            df = pd.read_csv(file_path)
+            DVR_model(df).to_csv(os.path.join(output_dir, f'DVR_Model_result_{base_file_name}.csv'), index=False)
+            mDVR_model(df).to_csv(os.path.join(output_dir, f'mDVR_model_result_{base_file_name}.csv'), index=False)
+            calculate_chill_heat(df).to_csv(os.path.join(output_dir, f'CD_Model_result_{base_file_name}.csv'), index=False)
+
+            print(f"Processed file saved: {output_file_path}")
+
 
 
 if __name__ == '__main__':
