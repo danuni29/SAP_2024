@@ -160,16 +160,6 @@ def mDVR_model(df):
 
         # DVR2 누적 합계 계산
         year_df['cumulative_DVR2'] = year_df['cumulative_DVR2'].cumsum()
-
-        # 중간 결과 확인: DVR1 및 DVR2 누적 합계 출력
-        print(f"=== DVR1 누적 합계 (연도: {year}) ===")
-        print(year_df[['date', 'cumulative_DVR1']].head(10))  # 상위 10개
-        print(year_df[['date', 'cumulative_DVR1']].tail(10))  # 하위 10개
-
-        print(f"=== DVR2 누적 합계 (연도: {year}) ===")
-        print(year_df[['date', 'cumulative_DVR2']].head(10))  # 상위 10개
-        print(year_df[['date', 'cumulative_DVR2']].tail(10))  # 하위 10개
-
         # 개화 시기 예측
         df_reach_bloom = year_df[year_df['cumulative_DVR2'] >= 0.9593]
 
@@ -182,6 +172,12 @@ def mDVR_model(df):
     # 결과를 DataFrame으로 변환하여 반환
     bloom_results_df = pd.DataFrame(bloom_results)
     return bloom_results_df
+
+
+    # 결과를 DataFrame으로 변환하여 반환
+    # bloom_results_df = pd.DataFrame(bloom_results)
+    # print(bloom_results_df)
+    # return bloom_results_df
 
 
 # chill_unit과 heat_unit을 계산하는 함수
@@ -229,7 +225,7 @@ def calculate_chill_heat(df):
 
     # 연도별로 데이터 처리
     for year, year_df in grouped_df:
-        print(year, year_df)
+        # print(year, year_df)
 
         year_df['cumulative_heat'] = 0.0
 
