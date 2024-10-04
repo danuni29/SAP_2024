@@ -165,9 +165,9 @@ def mDVR_model(df):
 
         if not df_reach_bloom.empty:
             bloom_date = df_reach_bloom.iloc[0]['date']
-            bloom_results.append({'year': year, 'predicted_bloom_date': bloom_date})
+            bloom_results.append({'year': year, 'full_bloom_date': bloom_date})
         else:
-            bloom_results.append({'year': year, 'predicted_bloom_date': None})
+            bloom_results.append({'year': year, 'full_bloom_date': None})
 
     # 결과를 DataFrame으로 변환하여 반환
     bloom_results_df = pd.DataFrame(bloom_results)
@@ -244,7 +244,7 @@ def calculate_chill_heat(df):
         result_df = pd.concat([result_df, year_date])
 
     cd_date = result_df[['year', 'date']].reset_index(drop=True)
-    cd_date = cd_date.rename(columns={"date": "CD"})
+    cd_date = cd_date.rename(columns={"date": "full_bloom_date"})
     # cd_date.to_csv('CD_Model_result.csv', index=False)
     return cd_date
 
@@ -259,7 +259,7 @@ def main():
         file_path = os.path.join(input_dir, file_name)
 
         if file_name.endswith('.csv'):  # CSV 파일만 처리
-            base_file_name = os.path.splitext(file_name)[0]
+            base_file_name = file_name.split('_')[1].split('.')[0]
 
             output_file_path = os.path.join(output_dir, file_name)
 
