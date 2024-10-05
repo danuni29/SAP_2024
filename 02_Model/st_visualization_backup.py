@@ -6,19 +6,27 @@ import os
 import geopandas as gpd
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import chardet
-
-def load_model_data(select_models, select_region, select_species):
+# import chardet
+def load_model_data(select_models, select_region, select_species, select_variety=None):
     """
-    선택된 모델, 지역에 따라 데이터를 로드하고 예측일을 추출하는 함수 (전체 연도를 포함)
+    선택된 모델, 지역, 품종에 따라 데이터를 로드하고 예측일을 추출하는 함수 (전체 연도를 포함)
     """
     data_list = []
+    variety_dict = {
+        '유명': 'ymn',
+        '창방조생': 'cbj',
+        '천중도백도': 'cjo',
+        '장호원백도': 'jhw',
+        '청홍': 'chh'
+    }
+
     for model in select_models:
         # 모델별로 파일 경로 생성
         if select_species == '배🍐':
             file_path = rf"C:\code\SAP_2024\02_Model\Pear_Model_output\{model}_Model\{model}_Model_result_{select_region}.csv"
         elif select_species == '복숭아🍑':
-            file_path = rf"C:\code\SAP_2024\02_Model\Peach_Model\Peach_Model_output\{select_region}_{model}.csv"
+            # 각 모델에 대해 개별적으로 경로 생성
+            file_path = rf"C:\code\SAP_2024\02_Model\Peach_Model\Peach_Model_output\{model}_Model\{select_region}_{variety_dict[select_variety]}_{model}.csv"
 
         # 파일 읽기 및 데이터 처리
         if os.path.exists(file_path):
@@ -28,9 +36,8 @@ def load_model_data(select_models, select_region, select_species):
         else:
             st.write(f"{model} 모델에 대한 파일을 찾을 수 없습니다: {file_path}")
 
+    # return을 반복문 밖으로 이동
     return data_list
-
-
 
 def plot_avg_temperature(data_path, select_year, select_region):
     """
@@ -305,6 +312,7 @@ def main():
     # 연도 선택 (2004~2024)
     select_year = st.sidebar.slider('연도를 선택하세요', 2004, 2024, 2024)
 
+
     # 그래프 보기 체크박스
     st.sidebar.write("보고 싶은 그래프를 선택하세요:")
     show_temp = st.sidebar.checkbox('평균온도변화')
@@ -314,51 +322,42 @@ def main():
     # 메인 타이틀
     st.title(f"{select_species} 개화 예측 모델")
 
-    # 선택 사항 출력 (디버깅용)
-    # st.write(f"선택한 작물: {select_species}")
-    # if select_species == '복숭아🍑':
-    #     st.write(f"선택한 품종: {select_variety}")
-    # st.write(f"선택한 지역: {select_region}")
-    # st.write(f"선택한 연도: {select_year}")
-
-    # 메인 화면에서 모델 선택
-    # st.write(f"### {select_species} 모델을 선택하세요:")
-
     if select_species == '배🍐':
-        select_models = st.multiselect(
+        select_model = st.multiselect(
             '사용할 모델을 선택하세요',
             ['DVR', 'mDVR', 'CD']  # 배에 해당하는 모델들
         )
     elif select_species == '복숭아🍑':
-        select_models = st.multiselect(
+        select_model = st.multiselect(
             '사용할 모델을 선택하세요',
             ['DVR', 'CD', 'NCD']  # 복숭아에 해당하는 모델들
         )
 
-    data_list = load_model_data(select_models, select_region, select_species)
+
 
     # 여기서부터 이제 결과 표시~~~~
 
     if select_species == '배🍐':
-        predicted_df = pd.read_csv(rf"C:\code\SAP_2024\02_Model\Pear_Model_output\{select_model}_Model\{select_model}_Model_result_{select_region}.csv")
-        # st.write(df)
+        data_list = load_model_data(select_model, select_region, select_species)
+        print(data_list)
 
-        filtered_data = predicted_df[predicted_df['full_bloom_date'].str[:4] == str(select_year)]
+
         observed_data = pd.read_csv(rf"C:\code\SAP_2024\02_Model\input\observe_data\flowering_date_{select_region}.csv")
 
-        st.subheader(f"{select_region} 지역 {select_year}년 개화일: {filtered_data.iloc[0]['full_bloom_date']}")
-
         if st.button("지도 표시"):
-            # CD_Model 폴더에서 연도별 데이터 로드
-            folder_path = fr'C:\code\SAP_2024\02_Model\Pear_Model_output\{select_model}_Model'  # CD_Model 폴더 경로
-            all_data = load_data_for_year(select_year, folder_path)
+            if len(select_model) == 1:  # 모델이 하나만 선택된 경우
+                model_name = select_model[0]
+                folder_path = fr'C:\code\SAP_2024\02_Model\Pear_Model_output\{model_name}_Model'  # CD_Model 폴더 경로
+                all_data = load_data_for_year(select_year, folder_path)
 
-            # 시도 경계선 로드
-            shapefile_path = r'C:\code\SAP_2024\02_Model\sigungu_map\sig.shp'  # Shapefile 경로
-            gdf_boundary = load_boundary_data(shapefile_path)
+                # 시도 경계선 로드
+                shapefile_path = r'C:\code\SAP_2024\02_Model\sigungu_map\sig.shp'  # Shapefile 경로
+                gdf_boundary = load_boundary_data(shapefile_path)
 
-            # 지도 그리기
-            plot_flowering_map(all_data, gdf_boundary, select_year)
+                # 지도 그리기
+                plot_flowering_map(all_data, gdf_boundary, select_year)
+            else:
+                st.write("하나의 모델만 선택해주세요.")
 
 
         # 그래프에 대한 로직은 여기에 추가하면 됩니다.
@@ -374,10 +373,12 @@ def main():
             # 그래프 표시 로직 추가
         if show_bloom:
             st.write("개화일변화 그래프를 표시합니다.")
-            draw_bloom_date_graph(predicted_df, observed_data, select_region)
-
+            # draw_bloom_date_graph(predicted_df, observed_data, select_region)
+            draw_bloom_date_graph(data_list, observed_data, select_region)
 
     elif select_species == '복숭아🍑':
+        data_list = load_model_data(select_model, select_region, select_species, select_variety)
+
         variety_dict = {
             '유명': 'ymn',
             '창방조생': 'cbj',
@@ -385,13 +386,27 @@ def main():
             '장호원백도': 'jhw',
             '청홍': 'chh'
         }
-        predicted_df = pd.read_csv(rf"C:\code\SAP_2024\02_Model\Peach_Model\Peach_Model_output\{select_region}_{variety_dict[select_variety]}_{select_model}.csv")
+        # predicted_df = pd.read_csv(rf"C:\code\SAP_2024\02_Model\Peach_Model\Peach_Model_output\{select_region}_{variety_dict[select_variety]}_{select_model}.csv")
 
-        filtered_data = predicted_df[predicted_df['full_bloom_date'].str[:4] == str(select_year)]
+        # filtered_data = predicted_df[predicted_df['full_bloom_date'].str[:4] == str(select_year)]
         observed_data_path =rf"C:\code\SAP_2024\02_Model\Peach_Model\peach_observed_data\flowering_date_{select_region}_{variety_dict[select_variety]}.csv"
 
-        st.subheader(f"{select_region} 지역 {select_year}년 개화일: {filtered_data.iloc[0]['full_bloom_date']}")
+        # st.subheader(f"{select_region} 지역 {select_year}년 개화일: {filtered_data.iloc[0]['full_bloom_date']}")
 
+        if st.button("지도 표시"):
+            if len(select_model) == 1:  # 모델이 하나만 선택된 경우
+                model_name = select_model[0]
+                folder_path = fr'C:\code\SAP_2024\02_Model\Peach_Model_Output\{model_name}_Model'  # CD_Model 폴더 경로
+                all_data = load_data_for_year(select_year, folder_path)
+
+                # 시도 경계선 로드
+                shapefile_path = r'C:\code\SAP_2024\02_Model\sigungu_map\sig.shp'  # Shapefile 경로
+                gdf_boundary = load_boundary_data(shapefile_path)
+
+                # 지도 그리기
+                plot_flowering_map(all_data, gdf_boundary, select_year)
+            else:
+                st.write("하나의 모델만 선택해주세요.")
 
         if os.path.exists(observed_data_path):
             observed_data = pd.read_csv(observed_data_path)
@@ -401,6 +416,7 @@ def main():
         # 그래프에 대한 로직은 여기에 추가하면 됩니다.
         if show_temp:
             st.write("평균온도변화 그래프를 표시합니다.")
+
             data_path = r'C:\code\SAP_2024\02_Model\input\weather_data'
 
             plot_avg_temperature(data_path, select_year, select_region)
@@ -410,7 +426,8 @@ def main():
             # 그래프 표시 로직 추가
         if show_bloom:
             st.write("개화일변화 그래프를 표시합니다.")
-            draw_bloom_date_graph(predicted_df, observed_data, select_region)
+            # draw_bloom_date_graph(predicted_df, observed_data, select_region)
+            draw_bloom_date_graph(data_list, observed_data, select_region)
 
 
 if __name__ == '__main__':

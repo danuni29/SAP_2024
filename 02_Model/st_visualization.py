@@ -6,7 +6,7 @@ import os
 import geopandas as gpd
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import chardet
+# import chardet
 
 def load_model_data(select_models, select_region, select_species):
     """
@@ -191,7 +191,7 @@ def plot_flowering_map(all_data, gdf_boundary, year):
                 missing_kwds={'color': 'gray'}, vmin=date_vmin, vmax=date_vmax)
 
     # 타이틀 설정
-    ax.set_title(f"{year}년 예측 만개일 지도", fontsize=15)
+    ax.set_title(f"{year}년 CD모델 예측 만개일 지도", fontsize=15)
     ax.set_axis_off()
 
     # 컬러바 추가

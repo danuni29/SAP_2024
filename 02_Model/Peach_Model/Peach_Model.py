@@ -31,10 +31,10 @@ def DVR_Model(df, C, D):
     # 결과 데이터프레임 만들기
     bloom_results_df = pd.DataFrame(bloom_results, columns=['full_bloom_date'])
 
-    # 첫 번째 행을 드랍
-    # bloom_results_df = bloom_results_df.drop(bloom_results_df.index[0])
 
     return bloom_results_df
+
+
 
 
 # Tn : 최저온도, Tm : 평균온도, Tx : 최고온도, Tm: 평균온도, Tc : 임계온도
@@ -95,16 +95,12 @@ def anti_chill_NCD(tmin, tmax, Tc, tavg):
 
 def CD_Model(df, Tc=5, Cr=-110, Hr=245):
     df['date'] = pd.to_datetime(df[['year', 'month', 'day']])
-
-    # 연도별로 데이터를 그룹화
     grouped_df = df.groupby('year')
-
-    # 결과 저장을 위한 리스트
     bloom_results = []
 
     # 연도별로 데이터 처리
     for year, year_df in grouped_df:
-        year_df = year_df[year_df['date'] >= pd.to_datetime(f'{year}-02-15')].copy()
+        year_df = year_df[year_df['date'] >= pd.to_datetime(f'{year}-01-30')].copy()
 
         # Cd 계산
         year_df['Cd'] = year_df.apply(lambda row: chill_CD(row['tmin'], row['tmax'], Tc, row['tavg']), axis=1)
@@ -141,7 +137,7 @@ def CD_Model(df, Tc=5, Cr=-110, Hr=245):
 
 
 
-def NCD_Model(df, Tc=5, Cr=-110, Hr=245):
+def NCD_Model(df, Tc, Cr, Hr):
     
     df['date'] = pd.to_datetime(df[['year', 'month', 'day']])
 
@@ -229,15 +225,11 @@ def main():
 
     # 동일한 숫자로 시작하는 파일들 처리
     used_prefixes = set()  # 이미 처리한 파일의 숫자(prefix)를 기록할 집합
-
     for file in files:
         if file.endswith('.csv'):  # CSV 파일만 처리
             # 파일명에서 앞의 숫자 추출 (예: '101_춘천.csv' -> '101')
             prefix = file.split('_')[0]
             filename = file.split('_')[1].split('.')[0]
-            # print(filename)
-
-
             # 동일한 prefix(숫자)로 시작하는 파일들만 처리
             if prefix not in used_prefixes:
                 used_prefixes.add(prefix)  # 처리된 prefix 기록
@@ -251,7 +243,6 @@ def main():
                     file_path = os.path.join(folder_path, file)
                     df = pd.read_csv(file_path)
 
-                    # 품종별로 함수를 적용하는 예시
                     for cultivar, params in param_set.items():
                         Tc = params['Tc']
                         Cr = params['Cr']
@@ -263,7 +254,7 @@ def main():
                         DVR_Model(df, C, D).to_csv(f'./Peach_Model_Output/{filename}_{cultivar}_DVR.csv')
                         CD_Model(df, Tc, Cr, Hr).to_csv(f'./Peach_Model_Output/{filename}_{cultivar}_CD.csv')
                         NCD_Model(df, Tc, Cr, Hr).to_csv(f'./Peach_Model_Output/{filename}_{cultivar}_NCD.csv')
-                        print(f"Modeling for {filename}_{cultivar} is done!")
+
 
 
 if __name__ == '__main__':

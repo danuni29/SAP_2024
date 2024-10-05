@@ -24,16 +24,6 @@ def valid_month(df):
     return df
 
 def DVR_model(df):
-    # parameter
-    # temp_data : 일평균 기온
-    # A = 107.94
-    # B = 0.9
-
-    # 예상만개일 : DVR이 100에 도달하는 순간
-    # 전년도 10월 1일 ~ 2월 15일 ????
-
-    # temp_data = df['tavg']
-
     A = 107.94
     B = 0.9
     df['date'] = pd.to_datetime(df[['year', 'month', 'day']])
@@ -43,11 +33,8 @@ def DVR_model(df):
     # agri_year별로 그룹화하여 반복
     for year, group in df.groupby('year'):
         DVS = 0
-        # print(year, group)
-
 
         for tavg, date in group[['tavg', 'date']].itertuples(index=False):
-
 
             if tavg > 5:
                 DVR = (1 / (A * (B ** tavg))) * 100
@@ -57,12 +44,11 @@ def DVR_model(df):
                 if DVS >= 100:
                     results.append({'DVS': DVS, 'full_bloom_date': date})
                     break
-
-
-            # 결과를 DataFrame으로 변환하고 CSV 파일로 저장
     result_df = pd.DataFrame(results)
         # result_df.to_csv('./DVR_Model_result.csv', index=False)
     return result_df
+
+
 #  ---------------------------------------------------
 # mDVR Model
 
@@ -141,12 +127,10 @@ def mDVR_model(df):
 
         # 2월 15일 DVR1 값을 1로 지정
         year_df.loc[year_df['date'] == pd.to_datetime(f'{year}-02-15'), 'DVR1_initial'] = 1
-
         # DVR1 누적 합계 계산 (2월 15일에 DVR1 값을 1로 지정하고 시작)
         dvr1_columns = [col for col in year_df.columns if 'DVR1_' in col]
         year_df['cumulative_DVR1'] = year_df[dvr1_columns].sum(axis=1).cumsum()
         year_df['cumulative_DVR1'] += year_df['DVR1_initial'].fillna(0)  # 2월 15일 값을 1로 시작하여 누적
-
         # DVR2는 DVR1이 2에 도달한 이후부터 누적
         year_df['cumulative_DVR2'] = 0  # 초기값 설정
         dvr2_columns = [col for col in year_df.columns if 'DVR2_' in col]
@@ -157,7 +141,6 @@ def mDVR_model(df):
                 start_accumulation = True
             if start_accumulation:
                 year_df.iloc[i, year_df.columns.get_loc('cumulative_DVR2')] = year_df.iloc[i][dvr2_columns].sum()
-
         # DVR2 누적 합계 계산
         year_df['cumulative_DVR2'] = year_df['cumulative_DVR2'].cumsum()
         # 개화 시기 예측
@@ -168,7 +151,6 @@ def mDVR_model(df):
             bloom_results.append({'year': year, 'full_bloom_date': bloom_date})
         else:
             bloom_results.append({'year': year, 'full_bloom_date': None})
-
     # 결과를 DataFrame으로 변환하여 반환
     bloom_results_df = pd.DataFrame(bloom_results)
     return bloom_results_df
@@ -215,14 +197,10 @@ def calculate_chill_heat(df):
     Cr = -86.4  # 저온요구량
 
     df['date'] = pd.to_datetime(df[['year', 'month', 'day']])
-
     # 각 행에 대해 chill_unit과 heat_unit 계산
     df[['chill_unit', 'heat_unit']] = df.apply(calculate_units, axis=1)
-
     result_df = pd.DataFrame()
     grouped_df = df.groupby('year')
-
-
     # 연도별로 데이터 처리
     for year, year_df in grouped_df:
         # print(year, year_df)
@@ -250,7 +228,6 @@ def calculate_chill_heat(df):
 
 
 def main():
-
     input_dir = '../input/weather_data'
     output_dir = '../Pear_Model_output'
     if not os.path.exists(output_dir):
@@ -270,7 +247,7 @@ def main():
 
             print(f"Processed file saved: {output_file_path}")
 
-
-
 if __name__ == '__main__':
     main()
+
+
