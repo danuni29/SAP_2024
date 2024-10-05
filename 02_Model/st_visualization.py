@@ -2,34 +2,42 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objs as go
+import os
+import geopandas as gpd
+import folium
+from folium import Choropleth
+
 
 
 def draw_bloom_date_graph(predicted_df, observed_data, select_region):
     predicted_df['full_bloom_date'] = pd.to_datetime(predicted_df['full_bloom_date'])
-    observed_data['Date'] = pd.to_datetime(observed_data['Date'])
 
     # 연도를 추출해서 x축에 사용할 열 생성
     predicted_df['year'] = predicted_df['full_bloom_date'].dt.year
-    observed_data['year'] = observed_data['Date'].dt.year
 
     # y축에 사용할 월-일 형식 만들기 (임시로 2000년을 기준으로 설정해 연도 없이 날짜 순서로 정렬)
     predicted_df['bloom_day'] = pd.to_datetime(predicted_df['full_bloom_date'].dt.strftime('2000-%m-%d'))
-    observed_data['bloom_day'] = pd.to_datetime(observed_data['Date'].dt.strftime('2000-%m-%d'))
 
     # 그래프 그리기
     fig = go.Figure()
 
     # 예측된 개화일 그래프 추가
     fig.add_trace(go.Scatter(x=predicted_df['year'], y=predicted_df['bloom_day'],
-                             mode='lines+markers', name='예측일'))
+                             mode='lines+markers', name='예측일', showlegend=True))
 
-    # 관측된 개화일 그래프 추가
-    fig.add_trace(go.Scatter(x=observed_data['year'], y=observed_data['bloom_day'],
-                             mode='lines+markers', name='실제 관측일'))
+    # 관측된 개화일 데이터가 있을 때만 처리
+    if observed_data is not None:
+        observed_data['Date'] = pd.to_datetime(observed_data['Date'])
+        observed_data['year'] = observed_data['Date'].dt.year
+        observed_data['bloom_day'] = pd.to_datetime(observed_data['Date'].dt.strftime('2000-%m-%d'))
+
+        # 관측된 개화일 그래프 추가
+        fig.add_trace(go.Scatter(x=observed_data['year'], y=observed_data['bloom_day'],
+                                 mode='lines+markers', name='실제 관측일', showlegend=True))
 
     # 그래프 레이아웃 설정
     fig.update_layout(
-        title=f"Predicted vs Observed Full Bloom Dates in {select_region}",
+        title=f"Full Bloom Dates in {select_region}",
         xaxis_title="Year",
         yaxis_title="Full Bloom Date",
         xaxis=dict(type='category'),  # 연도별로 나열
@@ -40,8 +48,6 @@ def draw_bloom_date_graph(predicted_df, observed_data, select_region):
 
     # 그래프 보여주기
     st.plotly_chart(fig)
-
-
 def main():
     st.title('2024 스마트농업프로그래밍')
     st.sidebar.title('개화 시기 예측 모델🌸')
@@ -63,12 +69,12 @@ def main():
         if select_variety == '청홍':
             select_region = st.sidebar.selectbox(
                 '지역을 선택하세요',
-                ['춘천', '수원', '청원', '나주', '진주']
+                ['춘천', '수원', '청주', '나주', '진주']
             )
         elif select_variety == '유명':
             select_region = st.sidebar.selectbox(
                 '지역을 선택하세요',
-                ['춘천', '수원', '청원', '청도', '나주', '진주']
+                ['춘천', '수원', '청주', '청도', '나주', '진주']
             )
         elif select_variety == '창방조생':
             select_region = st.sidebar.selectbox(
@@ -158,12 +164,17 @@ def main():
             '장호원백도': 'jhw',
             '청홍': 'chh'
         }
-        predicted_df = pd.read_csv(rf"C:\code\SAP_2024\02_Model\Peach_Model\Peach_Model_output\{select_region}_{variety_dict[{select_variety}]}_{select_model}.csv")
+        predicted_df = pd.read_csv(rf"C:\code\SAP_2024\02_Model\Peach_Model\Peach_Model_output\{select_region}_{variety_dict[select_variety]}_{select_model}.csv")
 
         filtered_data = predicted_df[predicted_df['full_bloom_date'].str[:4] == str(select_year)]
-        observed_data = pd.read_csv(rf"C:\code\SAP_2024\02_Model\input\observe_data\flowering_date_{select_region}.csv")
+        observed_data_path =rf"C:\code\SAP_2024\02_Model\Peach_Model\peach_observed_data\flowering_date_{select_region}_{variety_dict[select_variety]}.csv"
 
         st.subheader(f"{select_region} 지역 {select_year}년 개화일: {filtered_data.iloc[0]['full_bloom_date']}")
+
+        if os.path.exists(observed_data_path):
+            observed_data = pd.read_csv(observed_data_path)
+        else:
+            observed_data = None
 
         # 그래프에 대한 로직은 여기에 추가하면 됩니다.
         if show_temp:
