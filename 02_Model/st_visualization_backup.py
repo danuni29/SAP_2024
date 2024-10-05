@@ -325,16 +325,17 @@ def main():
     # st.write(f"### {select_species} 모델을 선택하세요:")
 
     if select_species == '배🍐':
-        select_model = st.radio(
+        select_models = st.multiselect(
             '사용할 모델을 선택하세요',
             ['DVR', 'mDVR', 'CD']  # 배에 해당하는 모델들
         )
     elif select_species == '복숭아🍑':
-        select_model = st.radio(
+        select_models = st.multiselect(
             '사용할 모델을 선택하세요',
             ['DVR', 'CD', 'NCD']  # 복숭아에 해당하는 모델들
         )
 
+    data_list = load_model_data(select_models, select_region, select_species)
 
     # 여기서부터 이제 결과 표시~~~~
 

@@ -3,90 +3,126 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import os
 import streamlit as st
+import matplotlib.font_manager as fm
 
-# CSV 파일 읽기
-csv_file = r'C:\code\SAP_2024\02_Model\Pear_Model_output\CD_Model_result_나주.csv'
-flowering_data = pd.read_csv(csv_file)
 
-# 날짜 데이터를 Month-Day 형식으로 변환 및 문자열로 유지
-flowering_data['full_bloom_date'] = pd.to_datetime(flowering_data['full_bloom_date'])
-flowering_data['bloom_day'] = flowering_data['full_bloom_date'].dt.strftime('%m-%d')
+# 1. CSV 파일에서 데이터를 읽어오기
+def load_data_for_year(year, folder_path):
+    data = []
+    for file_name in os.listdir(folder_path):
+        if file_name.endswith('.csv'):
+            # 파일 이름에서 지역 추출 (예: CD_Model_result_나주.csv -> 나주)
+            region = file_name.replace('CD_Model_result_', '').replace('.csv', '')
 
-# 날짜를 카테고리화하여 고유 코드로 변환
-flowering_data['bloom_day_code'] = flowering_data['bloom_day'].astype('category').cat.codes
+            # CSV 파일 읽기
+            file_path = os.path.join(folder_path, file_name)
+            df = pd.read_csv(file_path)
+
+            # 연도별 데이터 필터링
+            df_year = df[df['year'] == year]
+
+            # 날짜 데이터를 'bloom_day'로 변환 (예: 'full_bloom_date' 또는 유사한 열을 사용)
+            if 'full_bloom_date' in df_year.columns:
+                df_year['full_bloom_date'] = pd.to_datetime(df_year['full_bloom_date'], errors='coerce')  # 에러 무시 옵션 추가
+                df_year['bloom_day'] = df_year['full_bloom_date'].dt.strftime('%m-%d')
+
+            # 지역 추가
+            df_year['region'] = region
+
+            # 데이터 수집
+            data.append(df_year)
+
+    # 모든 지역 데이터를 하나의 데이터프레임으로 병합
+    all_data = pd.concat(data, ignore_index=True)
+
+    return all_data
+
 
 # 2. 전국 시도 경계선을 포함한 Shapefile 불러오기
-gdf_boundary = gpd.read_file(r'C:\code\SAP_2024\02_Model\sigungu_map\sig.shp', encoding='cp949')
-gdf_boundary['SIG_KOR_NM'] = gdf_boundary['SIG_KOR_NM'].str[:2]
+def load_boundary_data(shapefile_path):
+    gdf_boundary = gpd.read_file(shapefile_path, encoding='cp949')
+    gdf_boundary['SIG_KOR_NM'] = gdf_boundary['SIG_KOR_NM'].str[:2]  # 시도 이름만 사용
+    return gdf_boundary
 
 
-# 3. 데이터 병합
-def merge_data(flowering_data, gdf_boundary, year):
-    # '나주시'를 지역으로 설정
-    flowering_data['region'] = '나주시'
+# 3. 병합 및 지도 시각화 함수
+def plot_flowering_map(all_data, gdf_boundary, year):
+    plt.rcParams['font.family'] = 'Malgun Gothic'
+    plt.rcParams['axes.unicode_minus'] = False
 
-    # 병합
-    kr_gpd = pd.merge(gdf_boundary, flowering_data[flowering_data['year'] == year], left_on='SIG_KOR_NM',
-                      right_on='region', how='left')
+    # 지역별 데이터를 지도 경계 데이터와 병합 (how='outer'로 설정하여 모든 지역 표시)
+    gdf_boundary = gdf_boundary.rename(columns={'SIG_KOR_NM': 'region'})  # 지역명과 일치시키기
+    kr_gpd = pd.merge(gdf_boundary, all_data, on='region', how='outer')
 
-    # 결측치 처리 (병합 후 값이 없으면 0 또는 기타 값으로 대체)
-    kr_gpd['bloom_day_code'].fillna(0, inplace=True)
+    # 결측값 제거 (bloom_day 없는 지역 제거)
+    kr_gpd = kr_gpd.dropna(subset=['bloom_day'])
 
-    return kr_gpd
+    # bloom_day를 숫자로 변환하여 색상 범위로 사용
+    kr_gpd['bloom_day_numeric'] = kr_gpd['bloom_day_numeric'].apply(lambda x: int(x) if pd.notnull(x) else None)
+    kr_gpd = kr_gpd.dropna(subset=['bloom_day_numeric'])
+    kr_gpd['bloom_day_numeric'] = pd.to_numeric(kr_gpd['bloom_day_numeric'], errors='coerce')
 
+    # 결측값 제거 후 시각화할 컬럼의 범위 설정 (날짜를 숫자로 변환한 값의 최소, 최대값)
+    date_vmin = kr_gpd['bloom_day_numeric'].min()
+    date_vmax = kr_gpd['bloom_day_numeric'].max()
 
-# 4. 지도 그리기 함수
-def plot_flowering_map(df, year, model):
-    lst = [year - i for i in range(4, -1, -1)]
+    # 지도 그리기
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
 
-    # 병합한 GeoDataFrame 생성
-    kr_gpd = merge_data(df, gdf_boundary, year)
+    # 기본 배경은 회색으로 설정
+    gdf_boundary.plot(ax=ax, color='lightgray', edgecolor='black')
 
-    # 범위 설정
-    date_vmin = kr_gpd[model].min()
-    date_vmax = kr_gpd[model].max()
+    # bloom_day가 있는 데이터만 색상 표시
+    kr_gpd.dropna(subset=['bloom_day_numeric']).plot(column='bloom_day_numeric', ax=ax, legend=False, cmap='rainbow',
+                                                     missing_kwds={'color': 'gray'}, vmin=date_vmin, vmax=date_vmax)
 
-    fig, axes = plt.subplots(1, 5, figsize=(25, 6))
-    divider = make_axes_locatable(axes[-1])
-    cax = divider.append_axes("right", size="5%", pad=0.5)
+    # 타이틀 설정
+    ax.set_title(f"{year}년 만개일 지도", fontsize=15)
+    ax.set_axis_off()
 
-    model_column = model
-    for i, y in enumerate(lst):
-        kr_gpd = merge_data(df, gdf_boundary, y)  # 연도별 데이터 병합
-        kr_gpd.plot(column=model_column, ax=axes[i], legend=False, cmap='rainbow',
-                    missing_kwds={'color': 'gray'}, vmin=date_vmin, vmax=date_vmax)
+    # 컬러바 추가
+    sm = plt.cm.ScalarMappable(cmap='rainbow', norm=plt.Normalize(vmin=date_vmin, vmax=date_vmax))
+    cbar = fig.colorbar(sm, cax=cax)
 
-    # 마지막 서브플롯에 색상바 추가
-    kr_gpd.plot(column=model_column, ax=axes[-1], legend=True, cax=cax, cmap='rainbow',
-                missing_kwds={'color': 'gray'}, vmin=date_vmin, vmax=date_vmax)
+    # 컬러바의 날짜 눈금 표시
+    ticks = cbar.get_ticks()  # 컬러바 눈금 가져오기
+    tick_labels = [pd.Timestamp.fromordinal(int(tick)).strftime('%m-%d') for tick in ticks]
+    cbar.set_ticks([int(tick) for tick in ticks])  # float -> int로 변환
+    cbar.set_ticklabels(tick_labels)  # 컬러바에 날짜 표시
 
-    # 날짜 포맷 변경 (fromordinal 대신 bloom_day 값을 사용)
-    formatter = ScalarFormatter(useOffset=False, useMathText=True)
-    formatter.set_scientific(False)
-    cax.yaxis.set_major_formatter(formatter)
+    # 컬러바 레이블 설정
+    cbar.set_label('만개일 (MM-DD)')
 
-    # bloom_day_code와 원래 bloom_day 값 매핑
-    bloom_day_mapping = dict(enumerate(flowering_data['bloom_day'].astype('category').cat.categories))
-
-    # y 축 눈금 매핑
-    ticks = cax.get_yticks()
-    cax.set_yticklabels([bloom_day_mapping.get(int(tick), '') for tick in ticks])
-
-    for i, ax in enumerate(axes):
-        ax.set_title(f"{lst[i]}년 만개일")
-        ax.set_axis_off()
-
-    # Streamlit에서 그래프를 표시하도록 plt.show() 대신 사용
+    # Streamlit에 지도 표시
     st.pyplot(fig)
 
 
-# Streamlit UI (이 코드를 Streamlit 환경에서 실행할 때 사용)
-st.title("만개일 시각화 (나주시)")
+# 4. Streamlit 앱 실행
+def main():
+    # Streamlit UI 설정
+    st.title("연도별 만개일 지도")
 
-year = 2024
-model = 'bloom_day_code'  # bloom_day_code를 사용하여 숫자 값으로 처리
+    # 연도 입력 받기
+    year = st.number_input("연도를 입력하세요", min_value=2004, max_value=2024, value=2024)
 
-# 지도 표시 버튼
-if st.button("지도 표시"):
-    plot_flowering_map(flowering_data, year, model)
+    # 지도 표시 버튼
+    if st.button("지도 표시"):
+        # CD_Model 폴더에서 연도별 데이터 로드
+        folder_path = r'C:\code\SAP_2024\02_Model\Pear_Model_output\CD_Model'  # CD_Model 폴더 경로
+        all_data = load_data_for_year(year, folder_path)
+
+        # 시도 경계선 로드
+        shapefile_path = r'C:\code\SAP_2024\02_Model\sigungu_map\sig.shp'  # Shapefile 경로
+        gdf_boundary = load_boundary_data(shapefile_path)
+
+        # 지도 그리기
+        plot_flowering_map(all_data, gdf_boundary, year)
+
+
+# Streamlit 앱 시작
+if __name__ == '__main__':
+    main()
