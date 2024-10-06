@@ -1,8 +1,2 @@
-streamlit
-scikit-learn
-numpy
-setuptools
-wheel
-fiona
-shapely
-pyproj
+streamlit==1.25.0
+pandas==2.1.1

@@ -7,6 +7,8 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 # import chardet
+# import numpy as np
+
 def load_model_data(select_models, select_region, select_species, select_variety=None):
     """
     선택된 모델, 지역, 품종에 따라 데이터를 로드하고 예측일을 추출하는 함수 (전체 연도를 포함)
