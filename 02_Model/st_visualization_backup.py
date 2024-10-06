@@ -8,7 +8,21 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 # import chardet
 # import numpy as np
+def get_bloom_date(datalist, select_year):
+    """
+    datalist에서 선택한 연도의 full_bloom_date만 필터링하여 출력하는 함수
+    """
+    result = {}
+    for model_data in datalist:
+        model_name, data = model_data  # 모델 이름과 데이터 프레임을 언패킹
+        data['year'] = data['full_bloom_date'].dt.year  # 날짜에서 연도 추출
+        # 선택한 연도에 해당하는 데이터를 필터링
+        bloom_date = data[data['year'] == select_year]['full_bloom_date']
 
+        if not bloom_date.empty:
+            result[model_name] = bloom_date.dt.strftime('%Y-%m-%d').values[0]  # 날짜 형식을 YYYY-MM-DD로 변환
+
+    return result
 def load_model_data(select_models, select_region, select_species, select_variety=None):
     """
     선택된 모델, 지역, 품종에 따라 데이터를 로드하고 예측일을 추출하는 함수 (전체 연도를 포함)
@@ -29,6 +43,7 @@ def load_model_data(select_models, select_region, select_species, select_variety
         elif select_species == '복숭아🍑':
             # 각 모델에 대해 개별적으로 경로 생성
             file_path = rf"C:\code\SAP_2024\02_Model\Peach_Model\Peach_Model_output\{model}_Model\{select_region}_{variety_dict[select_variety]}_{model}.csv"
+            print(file_path)
 
         # 파일 읽기 및 데이터 처리
         if os.path.exists(file_path):
@@ -40,6 +55,11 @@ def load_model_data(select_models, select_region, select_species, select_variety
 
     # return을 반복문 밖으로 이동
     return data_list
+
+
+import matplotlib.dates as mdates
+
+import matplotlib.dates as mdates
 
 def plot_avg_temperature(data_path, select_year, select_region):
     """
@@ -71,7 +91,12 @@ def plot_avg_temperature(data_path, select_year, select_region):
 
     # Step 3: Create 'date' column from 'year', 'month', and 'day' columns
     if not weather_data.empty:
-        weather_data['date'] = pd.to_datetime(weather_data[['year', 'month', 'day']])
+        # tavg 컬럼을 숫자로 변환
+        weather_data['tavg'] = pd.to_numeric(weather_data['tavg'], errors='coerce')
+        weather_data = weather_data.dropna(subset=['tavg'])
+
+        # 날짜 변환
+        weather_data['date'] = pd.to_datetime(weather_data[['year', 'month', 'day']], errors='coerce')
 
         # Step 4: Preprocessing
         weather_data['year'] = weather_data['date'].dt.year
@@ -84,32 +109,39 @@ def plot_avg_temperature(data_path, select_year, select_region):
         selected_year_data = weather_data[weather_data['year'] == select_year]
 
         # Step 5: Calculate the max and min values for 평년 (normal years)
-        normal_grouped = normal_years_data.groupby('month_day').agg({'tavg': ['max', 'min']}).reset_index()
-        normal_grouped.columns = ['month_day', 'max_tavg', 'min_tavg']
+        normal_grouped = normal_years_data.groupby('date').agg({'tavg': ['max', 'min']}).reset_index()
+        normal_grouped.columns = ['date', 'max_tavg', 'min_tavg']
 
         # Step 6: Group selected year data by date and calculate the mean temperature
-        selected_grouped = selected_year_data.groupby('month_day').agg({'tavg': 'mean'}).reset_index()
+        selected_grouped = selected_year_data.groupby('date').agg({'tavg': 'mean'}).reset_index()
 
         # Step 7: Plotting with Matplotlib
         plt.figure(figsize=(10, 6))
 
+        # 날짜 데이터를 숫자로 변환
+        normal_grouped['date'] = mdates.date2num(normal_grouped['date'])
+        selected_grouped['date'] = mdates.date2num(selected_grouped['date'])
+
+        # NaN 값을 체크하고 제거
+        if normal_grouped[['max_tavg', 'min_tavg']].isnull().values.any():
+            normal_grouped = normal_grouped.dropna(subset=['max_tavg', 'min_tavg'])
+
         # Plot the mean temperature line for 평년 with a shaded band (max-min range)
-        plt.plot(normal_grouped['month_day'], (normal_grouped['max_tavg'] + normal_grouped['min_tavg']) / 2,
+        plt.plot(normal_grouped['date'], (normal_grouped['max_tavg'] + normal_grouped['min_tavg']) / 2,
                  color='orange', label='평년')
         plt.fill_between(
-            normal_grouped['month_day'],
+            normal_grouped['date'],
             normal_grouped['min_tavg'],
             normal_grouped['max_tavg'],
             color='gray', alpha=0.3, label='온도 범위 (최대-최소)'
         )
 
         # Plot the line for the selected year
-        plt.plot(selected_grouped['month_day'], selected_grouped['tavg'], color='blue', label=f'{select_year}년')
+        plt.plot(selected_grouped['date'], selected_grouped['tavg'], color='blue', label=f'{select_year}년')
 
-        # Customizing X-axis to show MM-DD format as in the image
-        # Generating tick positions for mid-month days
-        date_ticks = ['01-15', '02-01', '02-15', '03-01', '03-15', '04-01', '04-15', '05-01', '05-15', '06-01']
-        plt.xticks(date_ticks)
+        # Customizing X-axis to show dates
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+        plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
 
         plt.xlabel('Date (MM-DD)')
         plt.ylabel('Temperature (°C)')
@@ -122,8 +154,6 @@ def plot_avg_temperature(data_path, select_year, select_region):
     else:
         st.write(f"선택한 지역 '{select_region}'에 해당하는 데이터가 없습니다.")
         return
-
-
 
 
 def load_data_for_year(year, folder_path):
@@ -341,7 +371,13 @@ def main():
 
     if select_species == '배🍐':
         data_list = load_model_data(select_model, select_region, select_species)
-        print(data_list)
+        # print(data_list)
+        bloom_dates = get_bloom_date(data_list, select_year)
+
+        # 결과 출력
+        for model, date in bloom_dates.items():
+            # print(f"Model: {model}, Full Bloom Date for {select_year}: {date}")
+            st.subheader(f"모델: {model}, {select_year}년 예측 만개일: {date}")
 
 
         observed_data = pd.read_csv(rf"C:\code\SAP_2024\02_Model\input\observe_data\flowering_date_{select_region}.csv")
@@ -380,6 +416,12 @@ def main():
 
     elif select_species == '복숭아🍑':
         data_list = load_model_data(select_model, select_region, select_species, select_variety)
+        # print(data_list)
+        bloom_dates = get_bloom_date(data_list, select_year)
+
+        for model, date in bloom_dates.items():
+            # print(f"Model: {model}, Full Bloom Date for {select_year}: {date}")
+            st.subheader(f"모델: {model}, {select_year}년 예측 만개일: {date}")
 
         variety_dict = {
             '유명': 'ymn',
@@ -400,6 +442,7 @@ def main():
                 model_name = select_model[0]
                 folder_path = fr'C:\code\SAP_2024\02_Model\Peach_Model_Output\{model_name}_Model'  # CD_Model 폴더 경로
                 all_data = load_data_for_year(select_year, folder_path)
+
 
                 # 시도 경계선 로드
                 shapefile_path = r'C:\code\SAP_2024\02_Model\sigungu_map\sig.shp'  # Shapefile 경로

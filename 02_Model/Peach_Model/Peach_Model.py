@@ -136,7 +136,7 @@ def CD_Model(df, Tc=5, Cr=-110, Hr=245):
 
 
 
-def NCD_Model(df, Tc, Cr, Hr):
+def NCD_Model(df, nTc, nCr, nHr):
     
     df['date'] = pd.to_datetime(df[['year', 'month', 'day']])
 
@@ -151,32 +151,32 @@ def NCD_Model(df, Tc, Cr, Hr):
         year_df = year_df[year_df['date'] >= pd.to_datetime(f'{year}-02-15')].copy()
 
         # Cd 계산
-        year_df['Cd'] = year_df.apply(lambda row: chill_NCD(row['tmin'], row['tmax'], Tc, row['tavg']), axis=1)
+        year_df['Cd'] = year_df.apply(lambda row: chill_NCD(row['tmin'], row['tmax'], nTc, row['tavg']), axis=1)
         year_df['Cd_cumsum'] = year_df['Cd'].cumsum()
     
-        # Cr(추위 요구량)을 만족하는 시점 찾기 -> 휴면기 끝남
-        year_df['Cr_reached'] = year_df['Cd_cumsum'] >= Cr
+        # nCr(추위 요구량)을 만족하는 시점 찾기 -> 휴면기 끝남
+        year_df['nCr_reached'] = year_df['Cd_cumsum'] >= nCr
     
-        # Cr이 충족된 시점 이후에 Ca 계산
-        if year_df['Cr_reached'].any():
-            # 첫 번째로 Cr을 충족한 날짜 찾기 -> 휴면기가 끝난
-            rest_break_date = year_df.loc[year_df['Cr_reached']].index[0]
+        # nCr이 충족된 시점 이후에 Ca 계산
+        if year_df['nCr_reached'].any():
+            # 첫 번째로 nCr을 충족한 날짜 찾기 -> 휴면기가 끝난
+            rest_break_date = year_df.loc[year_df['nCr_reached']].index[0]
     
             # 해당 날짜 이후부터 Ca 계산
             year_df.loc[rest_break_date:, 'Ca'] = year_df.loc[rest_break_date:].apply(
-                lambda row: anti_chill_NCD(row['tmin'], row['tmax'], Tc, row['tavg']), axis=1)
+                lambda row: anti_chill_NCD(row['tmin'], row['tmax'], nTc, row['tavg']), axis=1)
             year_df['Ca_cumsum'] = year_df['Ca'].cumsum()
     
-            # Hr(난방 요구량)이 충족되는 날짜 찾기
-            year_df['Hr_reached'] = year_df['Ca_cumsum'] >= Hr
-            if year_df['Hr_reached'].any():
-                full_bloom_date = year_df.loc[year_df['Hr_reached']].iloc[0]
+            # nHr(난방 요구량)이 충족되는 날짜 찾기
+            year_df['nHr_reached'] = year_df['Ca_cumsum'] >= nHr
+            if year_df['nHr_reached'].any():
+                full_bloom_date = year_df.loc[year_df['nHr_reached']].iloc[0]
                 # print(f"Full bloom predicted on: {full_bloom_date}")
                 bloom_results.append(full_bloom_date)
             else:
-                print("Hr(난방 요구량)에 도달하지 않았습니다.")
+                print("nHr(난방 요구량)에 도달하지 않았습니다.")
         else:
-            print("Cr(추위 요구량)에 도달하지 않았습니다.")
+            print("nCr(추위 요구량)에 도달하지 않았습니다.")
 
     bloom_results_df = pd.DataFrame(bloom_results)
     bloom_results_df = bloom_results_df[['date']]
@@ -189,32 +189,34 @@ def main():
 
     parameters = {
         '101': {# 춘천
-            'chh': {'Tc': 5.0, 'Cr': -100, 'Hr': 244.0, 'C': 0.014, 'D': 0.062},
-            'ymn': {'Tc': 5.0, 'Cr': -110, 'Hr': 245.0, 'C': 0.010, 'D': 0.093}
+            'chh': {'Tc': 5.0, 'Cr': -100, 'Hr': 244.0,'nTc': 5.0, 'nCr': -82, 'nHr': 231.3, 'C': 0.014, 'D': 0.062},
+            'ymn': {'Tc': 5.0, 'Cr': -110, 'Hr': 245.0,'nTc': 5.2, 'nCr': -92, 'nHr': 228.5, 'C': 0.010, 'D': 0.093}
         },
         '119': { # 수원
-            'cbj': {'Tc': 5.0, 'Cr': -107, 'Hr': 232.9, 'C': 0.008, 'D': 0.127},
-            'chh': {'Tc': 5.0, 'Cr': -107, 'Hr': 240.1, 'C': 0.004, 'D': 0.194},
-            'ymn': {'Tc': 6.0, 'Cr': -73, 'Hr': 180.2, 'C': 0.007, 'D': 0.138}
+            'cbj': {'Tc': 5.0, 'Cr': -107, 'Hr': 232.9,'nTc': 6.0, 'nCr': -81, 'nHr': 186.6, 'C': 0.008, 'D': 0.127},
+            'chh': {'Tc': 5.0, 'Cr': -107, 'Hr': 240.1,'nTc': 5.9, 'nCr': -81, 'nHr': 196.3, 'C': 0.004, 'D': 0.194},
+            'ymn': {'Tc': 6.0, 'Cr': -73, 'Hr': 180.2, 'nTc': 5.0, 'nCr': -93, 'nHr': 210.2, 'C': 0.007, 'D': 0.138}
         },
         '232': {# 청원..천안
-            'chh': {'Tc': 5.0, 'Cr': -133, 'Hr': 261.8, 'C': 0.011, 'D': 0.077},
-            'ymn': {'Tc': 7.0, 'Cr': -95, 'Hr': 199.2, 'C': 0.002, 'D': 0.261}
+            'chh': {'Tc': 5.0, 'Cr': -133, 'Hr': 261.8, 'nTc': 7.0, 'nCr': -82, 'nHr': 176.2, 'C': 0.011, 'D': 0.077},
+            'ymn': {'Tc': 7.0, 'Cr': -95, 'Hr': 199.2, 'nTc': 7.0, 'nCr': -82, 'nHr': 176.2, 'C': 0.002, 'D': 0.261}
         },
         '813': { # 청도
-            'cjo': {'Tc': 9.0, 'Cr': -73, 'Hr': 137.2, 'C': 0.010, 'D': 0.077},
-            'jhw': {'Tc': 9.0, 'Cr': -73, 'Hr': 134.0, 'C': 0.012, 'D': 0.065},
-            'ymn': {'Tc': 5.2, 'Cr': -130, 'Hr': 277.4, 'C': 0.006, 'D': 0.129}
+            'cjo': {'Tc': 9.0, 'Cr': -73, 'Hr': 137.2, 'nTc': 5.0, 'nCr': -140, 'nHr': 272.1, 'C': 0.010, 'D': 0.077},
+            'jhw': {'Tc': 9.0, 'Cr': -73, 'Hr': 134.0, 'nTc': 5.0, 'nCr': -140, 'nHr': 263.2, 'C': 0.012, 'D': 0.065},
+            'ymn': {'Tc': 5.2, 'Cr': -130, 'Hr': 277.4, 'nTc': 5.3, 'nCr': -131, 'nHr': 263.2, 'C': 0.006, 'D': 0.129}
         },
         '710': { # 나주
-            'chh': {'Tc': 8.0, 'Cr': -71, 'Hr': 149.6, 'C': 0.016, 'D': 0.053},
-            'ymn': {'Tc': 8.0, 'Cr': -74, 'Hr': 150.0, 'C': 0.017, 'D': 0.043}
+            'chh': {'Tc': 8.0, 'Cr': -71, 'Hr': 149.6,'nTc': 5.1, 'nCr': -114, 'nHr': 234.9, 'C': 0.016, 'D': 0.053},
+            'ymn': {'Tc': 8.0, 'Cr': -74, 'Hr': 150.0, 'nTc': 5.1, 'nCr': -114, 'nHr': 234.9,'C': 0.017, 'D': 0.043}
         },
         '192': { # 진주
-            'chh': {'Tc': 6.0, 'Cr': -123, 'Hr': 215.7, 'C': 0.022, 'D': 0.029},
-            'ymn': {'Tc': 5.1, 'Cr': -148, 'Hr': 271.0, 'C': 0.020, 'D': 0.028}
+            'chh': {'Tc': 6.0, 'Cr': -123, 'Hr': 215.7, 'nTc': 7.0, 'nCr': -75, 'nHr': 153.4, 'C': 0.022, 'D': 0.029},
+            'ymn': {'Tc': 5.1, 'Cr': -148, 'Hr': 271.0, 'nTc': 6.0, 'nCr': -94, 'nHr': 200.7,'C': 0.020, 'D': 0.028}
         }
     }
+
+
 
     folder_path = '../input/weather_data'
 
@@ -243,15 +245,18 @@ def main():
 
                     for cultivar, params in param_set.items():
                         Tc = params['Tc']
+                        nTc = params['nTc']
                         Cr = params['Cr']
+                        nCr = params['nCr']
                         Hr = params['Hr']
+                        nHr = params['nHr']
                         C = params['C']
                         D = params['D']
 
                         # 모델 실행
-                        DVR_Model(df, C, D).to_csv(f'./Peach_Model_Output/{filename}_{cultivar}_DVR.csv')
-                        CD_Model(df, Tc, Cr, Hr).to_csv(f'./Peach_Model_Output/{filename}_{cultivar}_CD.csv')
-                        NCD_Model(df, Tc, Cr, Hr).to_csv(f'./Peach_Model_Output/{filename}_{cultivar}_NCD.csv')
+                        # DVR_Model(df, C, D).to_csv(f'./Peach_Model_Output/{filename}_{cultivar}_DVR.csv')
+                        # CD_Model(df, Tc, Cr, Hr).to_csv(f'./Peach_Model_Output/{filename}_{cultivar}_CD.csv')
+                        NCD_Model(df, nTc, nCr, nHr).to_csv(f'./Peach_Model_Output/{filename}_{cultivar}_NCD.csv')
 
 
 
