@@ -1,0 +1,8 @@
+streamlit==1.25.0
+scikit-learn==1.3.0
+numpy==1.24.3
+setuptools
+wheel
+fiona
+shapely
+pyproj

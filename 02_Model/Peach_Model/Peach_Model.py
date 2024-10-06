@@ -31,7 +31,6 @@ def DVR_Model(df, C, D):
     # 결과 데이터프레임 만들기
     bloom_results_df = pd.DataFrame(bloom_results, columns=['full_bloom_date'])
 
-
     return bloom_results_df
 
 
@@ -151,7 +150,6 @@ def NCD_Model(df, Tc, Cr, Hr):
     for year, year_df in grouped_df:
         year_df = year_df[year_df['date'] >= pd.to_datetime(f'{year}-02-15')].copy()
 
-    
         # Cd 계산
         year_df['Cd'] = year_df.apply(lambda row: chill_NCD(row['tmin'], row['tmax'], Tc, row['tavg']), axis=1)
         year_df['Cd_cumsum'] = year_df['Cd'].cumsum()

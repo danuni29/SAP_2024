@@ -1,5 +1,6 @@
 import streamlit as st
 from sklearn.neighbors import NearestNeighbors
+
 import numpy as np
 
 # 데이터 준비: 근육 그룹별 훈련법, 설명, 이미지, 동영상 (실제 이미지와 동영상 링크 필요)
