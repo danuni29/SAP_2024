@@ -91,12 +91,7 @@ def plot_avg_temperature(data_path, select_year, select_region):
 
     # Step 3: Create 'date' column from 'year', 'month', and 'day' columns
     if not weather_data.empty:
-        # tavg 컬럼을 숫자로 변환
-        weather_data['tavg'] = pd.to_numeric(weather_data['tavg'], errors='coerce')
-        weather_data = weather_data.dropna(subset=['tavg'])
-
-        # 날짜 변환
-        weather_data['date'] = pd.to_datetime(weather_data[['year', 'month', 'day']], errors='coerce')
+        weather_data['date'] = pd.to_datetime(weather_data[['year', 'month', 'day']])
 
         # Step 4: Preprocessing
         weather_data['year'] = weather_data['date'].dt.year
@@ -109,39 +104,32 @@ def plot_avg_temperature(data_path, select_year, select_region):
         selected_year_data = weather_data[weather_data['year'] == select_year]
 
         # Step 5: Calculate the max and min values for 평년 (normal years)
-        normal_grouped = normal_years_data.groupby('date').agg({'tavg': ['max', 'min']}).reset_index()
-        normal_grouped.columns = ['date', 'max_tavg', 'min_tavg']
+        normal_grouped = normal_years_data.groupby('month_day').agg({'tavg': ['max', 'min']}).reset_index()
+        normal_grouped.columns = ['month_day', 'max_tavg', 'min_tavg']
 
         # Step 6: Group selected year data by date and calculate the mean temperature
-        selected_grouped = selected_year_data.groupby('date').agg({'tavg': 'mean'}).reset_index()
+        selected_grouped = selected_year_data.groupby('month_day').agg({'tavg': 'mean'}).reset_index()
 
         # Step 7: Plotting with Matplotlib
         plt.figure(figsize=(10, 6))
 
-        # 날짜 데이터를 숫자로 변환
-        normal_grouped['date'] = mdates.date2num(normal_grouped['date'])
-        selected_grouped['date'] = mdates.date2num(selected_grouped['date'])
-
-        # NaN 값을 체크하고 제거
-        if normal_grouped[['max_tavg', 'min_tavg']].isnull().values.any():
-            normal_grouped = normal_grouped.dropna(subset=['max_tavg', 'min_tavg'])
-
         # Plot the mean temperature line for 평년 with a shaded band (max-min range)
-        plt.plot(normal_grouped['date'], (normal_grouped['max_tavg'] + normal_grouped['min_tavg']) / 2,
+        plt.plot(normal_grouped['month_day'], (normal_grouped['max_tavg'] + normal_grouped['min_tavg']) / 2,
                  color='orange', label='평년')
         plt.fill_between(
-            normal_grouped['date'],
+            normal_grouped['month_day'],
             normal_grouped['min_tavg'],
             normal_grouped['max_tavg'],
             color='gray', alpha=0.3, label='온도 범위 (최대-최소)'
         )
 
         # Plot the line for the selected year
-        plt.plot(selected_grouped['date'], selected_grouped['tavg'], color='blue', label=f'{select_year}년')
+        plt.plot(selected_grouped['month_day'], selected_grouped['tavg'], color='blue', label=f'{select_year}년')
 
-        # Customizing X-axis to show dates
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
-        plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
+        # Customizing X-axis to show MM-DD format as in the image
+        # Generating tick positions for mid-month days
+        date_ticks = ['01-15', '02-01', '02-15', '03-01', '03-15', '04-01', '04-15', '05-01', '05-15', '06-01']
+        plt.xticks(date_ticks)
 
         plt.xlabel('Date (MM-DD)')
         plt.ylabel('Temperature (°C)')
@@ -154,6 +142,7 @@ def plot_avg_temperature(data_path, select_year, select_region):
     else:
         st.write(f"선택한 지역 '{select_region}'에 해당하는 데이터가 없습니다.")
         return
+
 
 
 def load_data_for_year(year, folder_path):
